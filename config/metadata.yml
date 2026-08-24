@@ -1,0 +1,85 @@
+version: 1
+datasets:
+  customers_raw:
+    owner: data-platform
+    source: postgres.customers
+    classification: confidential
+    contains_pii: true
+    masking_required: true
+    criticality: high
+    refresh: on-demand
+    retention_days: 2555
+    strategy: watermark-upsert-plus-key-reconciliation
+    primary_key: customer_id
+    dq_checks: [source_key_parity, null_key, malformed_contacts]
+  customer_master:
+    owner: customer-operations
+    source: customers_raw+advances_raw
+    classification: confidential
+    contains_pii: true
+    masking_required: true
+    criticality: high
+    refresh: on-demand
+    retention_days: 2555
+    strategy: deterministic-identity-resolution
+    primary_key: master_customer_id
+    dq_checks: [alias_coverage, protected_survivor, identity_conflicts]
+  advances_raw:
+    owner: lending
+    source: postgres.advances
+    classification: restricted
+    contains_pii: false
+    masking_required: false
+    criticality: high
+    refresh: on-demand
+    retention_days: 2555
+    strategy: watermark-upsert-plus-key-reconciliation
+    primary_key: advance_id
+    dq_checks: [source_key_parity, orphan_customer]
+  transactions_raw:
+    owner: payments
+    source: postgres.transactions
+    classification: restricted
+    contains_pii: false
+    masking_required: false
+    criticality: high
+    refresh: on-demand
+    retention_days: 2555
+    strategy: append-optimized-watermark-plus-key-reconciliation
+    primary_key: transaction_id
+    dq_checks: [source_key_parity, orphan_advance]
+  cards_raw:
+    owner: payments
+    source: postgres.cards
+    classification: restricted
+    contains_pii: true
+    masking_required: true
+    criticality: high
+    refresh: on-demand
+    retention_days: 2555
+    strategy: watermark-upsert-plus-key-reconciliation
+    primary_key: card_id
+    dq_checks: [source_key_parity, orphan_customer]
+  advance_status_history_raw:
+    owner: lending
+    source: postgres.advance_status_history
+    classification: internal
+    contains_pii: false
+    masking_required: false
+    criticality: medium
+    refresh: on-demand
+    retention_days: 2555
+    strategy: append-only-sequence
+    primary_key: history_id
+    dq_checks: [source_key_parity, monotonic_sequence]
+
+excluded_sources:
+  scratch_customer_export:
+    reason: unused scratch table with no owner or consumer; measured and documented, not replicated
+
+lineage:
+  - postgres.customers -> customers_raw -> customer_alias -> customer_master
+  - postgres.advances -> advances_raw -> customer_master
+  - postgres.cards -> cards_raw -> cards_master
+  - postgres.transactions -> transactions_raw
+
