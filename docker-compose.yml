@@ -1,0 +1,38 @@
+name: fundo-take-home
+
+services:
+  source:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fundo}
+      POSTGRES_USER: ${POSTGRES_USER:-fundo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fundo_local_only}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - source_data:/var/lib/postgresql/data
+      - ./sql/source:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-54329}:5432"
+
+  pipeline:
+    build: .
+    depends_on:
+      source:
+        condition: service_healthy
+    environment:
+      SOURCE_DSN: ${SOURCE_DSN:-postgresql://fundo:fundo_local_only@source:5432/fundo}
+      WAREHOUSE_PATH: ${WAREHOUSE_PATH:-/data/warehouse.duckdb}
+      METADATA_PATH: /app/config/metadata.yml
+      WAREHOUSE_SCHEMA_PATH: /app/sql/warehouse/001_schema.sql
+      PIPELINE_ENV: local
+    volumes:
+      - warehouse_data:/data
+
+volumes:
+  source_data:
+  warehouse_data:
+
