@@ -1,0 +1,10 @@
+.git
+.env
+.pytest_cache
+__pycache__
+*.pyc
+*.duckdb
+.venv
+*.egg-info
+htmlcov
+
